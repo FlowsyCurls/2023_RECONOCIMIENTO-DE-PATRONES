@@ -41,5 +41,5 @@ class LogisticRegression:
     def predict(self, X, threshold):
         return self.predict_prob(X) >= threshold
 
-    def score(self, y_pred, y_test):
+    def score(self, y_test, y_pred):
         return float(sum(y_pred == y_test)) / float(len(y_test))

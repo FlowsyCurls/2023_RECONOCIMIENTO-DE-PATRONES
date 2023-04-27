@@ -98,19 +98,5 @@ class KNearestNeighbors:
 
             return y_pred
 
-    def score(self, X_test, y_test):
-        y_pred = self.predict(X_test)
-        return float(sum(y_pred == y_test)) / float(len(y_test)), y_pred, y_test
-
-
-    def precision(self, y_test, y_pred, pos_label=1):
-        # 0 es BUENO
-        # 1 es MALO
-        true_positives = sum((y_test == pos_label) & (y_pred == pos_label))
-        false_positives = sum((y_test != pos_label) & (y_pred == pos_label))
-        return true_positives / (true_positives + false_positives)
-
-    def recall(self, y_test, y_pred, pos_label=1):
-        true_positives = sum((y_test == pos_label) & (y_pred == pos_label))
-        false_negatives = sum((y_test == pos_label) & (y_pred != pos_label))
-        return true_positives / (true_positives + false_negatives)
+    def score(self, y_test, y_pred):
+        return float(sum(y_pred == y_test)) / float(len(y_test))
