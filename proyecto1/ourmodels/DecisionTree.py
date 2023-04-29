@@ -1,135 +1,101 @@
-import math
 import numpy as np
 
+class DecisionNode:
+    def __init__(self, column=None, value=None, true_branch=None, false_branch=None, result=None):
+        self.column = column
+        self.value = value
+        self.true_branch = true_branch
+        self.false_branch = false_branch
+        self.result = result
 
-def entropy_func(c, n):
-    return -(c * 1.0 / n) * math.log(c * 1.0 / n, 2)
-
-
-def entropy_cal(c1, c2):
-    # entropy between class 1 and 2
-    if c1 == 0 or c2 == 0:  # when there is only one class in the group, entropy is 0
-        return 0
-    return entropy_func(c1, c1 + c2) + entropy_func(c2, c1 + c2)
-
-
-# One versus All
-# c1,c2,c3, .., cm
-# c1, *
-# c2, *
-# c3, *
-# ...
-# cm, *
-
-
-# each class versus the others
-def entropy_of_one_division(division):
-    s = 0
-    n = len(division)
-    classes = set(division)
-    for c in classes:  # for each class, get entropy
-        n_c = sum(division == c)
-        e = (
-            n_c * 1.0 / n * entropy_cal(sum(division == c), sum(division != c))
-        )  # weighted avg
-        s += e
-    return s, n
-
-
-# The whole entropy
-def get_entropy(y_predict, y_real):
-    if len(y_predict) != len(y_real):
-        print("They have to be the same length")
-        return None
-    n = len(y_real)
-    s_true, n_true = entropy_of_one_division(
-        y_real[y_predict]
-    )  # left hand side entropy
-    s_false, n_false = entropy_of_one_division(
-        y_real[~y_predict]
-    )  # right hand side entropy
-    s = (
-        n_true * 1.0 / n * s_true + n_false * 1.0 / n * s_false
-    )  # overall entropy, again weighted average
-    return s
-
-
-class DecisionTreeClassifier(object):
-    def __init__(self, max_depth):
-        self.depth = 0
+class DecisionTreeClassifier:
+    def __init__(self, min_samples=2, max_depth=5):
+        self.min_samples = min_samples
         self.max_depth = max_depth
+        
+    def fit(self, X, y):
+        self.n_classes = len(set(y))
+        self.n_features = X.shape[1]
+        self.tree = self.build_tree(X, y)
+        
+    def predict(self, X):
+        return [self.classify_sample(x, self.tree) for x in X]
+    
+    def build_tree(self, X, y, max_depth=0):
+        num_samples = len(y)
+        num_features = X.shape[1]
+        num_classes = len(set(y))
+        
+        if (num_samples < self.min_samples or max_depth == self.max_depth or num_classes == 1):
+            return DecisionNode(result=self.calculate_result(y))
+        
+        best_column, best_value = self.find_best_split(X, y, num_samples, num_features)
+        true_indices, false_indices = self.split_data(X[:, best_column], best_value)
+        
+        true_branch = self.build_tree(X[true_indices,:], y[true_indices], max_depth+1)
+        false_branch = self.build_tree(X[false_indices,:], y[false_indices], max_depth+1)
+        
+        return DecisionNode(best_column, best_value, true_branch, false_branch)
+    
+    def find_best_split(self, X, y, num_muestras, num_features):
+        best_gain = -1
+        best_column = None
+        best_value = None
+        
+        for column in range(num_features):
+            values = set(X[:,column])
+            
+            for value in values:
+                true_indices, false_indices = self.split_data(X[:,column], value)
+                
+                if len(true_indices) == 0 or len(false_indices) == 0:
+                    continue
+                
+                gain = self.calculate_gain(y, true_indices, false_indices)
+                
+                if gain > best_gain:
+                    best_gain = gain
+                    best_column = column
+                    best_value = value
+                    
+        return best_column, best_value
+    
+    def split_data(self, feature, value):
+        true_indices = np.argwhere(feature <= value).flatten()
+        false_indices = np.argwhere(feature > value).flatten()
+        
+        return true_indices, false_indices
+    
+    def calculate_gain(self, y, true_indices, false_indices):
+        initial_entropy = self.calculate_entropy(y)
+        weight_true = len(true_indices) / len(y)
+        weight_false = len(false_indices) / len(y)
+        entropy_true = self.calculate_entropy(y[true_indices])
+        entropy_false = self.calculate_entropy(y[false_indices])
+        
+        gain = initial_entropy - weight_true * entropy_true - weight_false * entropy_false
+        
+        return gain
+    
+    def calculate_entropy(self, y):
+        class_distribution = np.array([np.sum(y == c) for c in range(self.n_classes)])
+        class_distribution = class_distribution / len(y)
+        
+        entropy = -np.sum(class_distribution * np.log2(class_distribution + 1e-6))
+        
+        return entropy
 
-    def fit(self, feature_names, x, y, par_node={}, depth=0):
-        if par_node is None:
-            return None
-        elif len(y) == 0:
-            return None
-        elif self.all_same(y):
-            return {"val": y[0]}
-        elif depth >= self.max_depth:
-            return None
+    def calculate_result(self, y):
+        class_distribution = np.array([np.sum(y == c) for c in range(self.n_classes)])
+        result = np.argmax(class_distribution)
+        
+        return result
+
+    def classify_sample(self, x, current_node):
+        if current_node.result is not None:
+            return current_node.result
+        
+        if x[current_node.column] <= current_node.value:
+            return self.classify_sample(x, current_node.true_branch)
         else:
-            col, cutoff, entropy = self.find_best_split_of_all(
-                x, y
-            )  # find one split given an information gain
-            y_left = y[x[:, col] < cutoff]
-            y_right = y[x[:, col] >= cutoff]
-            par_node = {
-                "col": feature_names[col],
-                "index_col": col,
-                "cutoff": cutoff,
-                "val": np.round(np.mean(y)),
-            }
-            par_node["left"] = self.fit(x[x[:, col] < cutoff], y_left, {}, depth + 1)
-            par_node["right"] = self.fit(x[x[:, col] >= cutoff], y_right, {}, depth + 1)
-            self.depth += 1
-            self.trees = par_node
-            return par_node
-
-    # all features versus values, get best
-    def find_best_split_of_all(self, x, y):
-        # print(x.shape, y.shape)
-        col = None
-        min_entropy = 1
-        cutoff = None
-        for i, c in enumerate(x.T):
-            entropy, cur_cutoff = self.find_best_split(c, y)
-            if entropy == 0:  # find the first perfect cutoff. Stop Iterating
-                return i, cur_cutoff, entropy
-            elif entropy <= min_entropy:
-                min_entropy = entropy
-                col = i
-                cutoff = cur_cutoff
-        return col, cutoff, min_entropy
-
-    # one feature versus values
-    def find_best_split(self, col, y):
-        min_entropy = 10
-        n = len(y)
-        for value in set(col):
-            y_predict = col < value  # get which ones are less than
-            my_entropy = get_entropy(y_predict, y)
-            if my_entropy <= min_entropy:
-                min_entropy = my_entropy
-                cutoff = value
-        return min_entropy, cutoff
-
-    def all_same(self, items):
-        return all(x == items[0] for x in items)
-
-    def predict(self, x):
-        tree = self.trees
-        results = np.array([0] * len(x))
-        for i, c in enumerate(x):
-            results[i] = self._get_prediction(c)
-        return results
-
-    def _get_prediction(self, row):
-        cur_layer = self.trees
-        while cur_layer.get("cutoff"):
-            if row[cur_layer["index_col"]] < cur_layer["cutoff"]:
-                cur_layer = cur_layer["left"]
-            else:
-                cur_layer = cur_layer["right"]
-        else:
-            return cur_layer.get("val")
+            return self.classify_sample(x, current_node.false_branch)
