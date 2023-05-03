@@ -66,6 +66,12 @@ class KNearestNeighbors:
             # Calcula las distancias y los índices de los k vecinos más cercanos
             distances, neigh_indexes = self.kneighbors(X_test, return_distance=True)
 
+            # Se reemplazan los ceros por 0.0000001
+            for i in range(len(distances)):
+                for e in range(len(distances[i])):
+                    if distances[i][e] == 0.0:
+                        distances[i][e] = 0.0000001
+                        
             # Calcula las ponderaciones inversas de las distancias
             inv_distances = 1 / distances
 
