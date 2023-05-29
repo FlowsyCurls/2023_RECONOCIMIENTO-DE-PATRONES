@@ -1,0 +1,26 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Definir la función
+def f(x, y):
+    return np.log(x**2-y**2)*(x>0)*(abs(y)<x)
+
+# Definir los límites de la malla
+x = np.linspace(0.1, 2, 50)
+y = np.linspace(-1.9, 1.9, 50)
+X, Y = np.meshgrid(x, y)
+
+# Calcular el gradiente
+Gx, Gy = np.gradient(f(X, Y))
+
+# Graficar la superficie
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot_surface(X, Y, f(X, Y), cmap='coolwarm')
+ax.set_title('Superficie de f(x,y)')
+
+# Graficar el vector
+ax.quiver(X, Y, -Gx*5, -Gy*5, np.zeros_like(X), color='red', length=0.2, arrow_length_ratio=0.5)
+ax.set_title('Gradiente de f(x,y)')
+
+plt.show()
