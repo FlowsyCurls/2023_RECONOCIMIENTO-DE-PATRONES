@@ -162,6 +162,8 @@ cython_debug/
 !proyecto2/dataset/clean_images/.gitkeep
 proyecto2/dataset
 
+!proyecto3/dataset/.gitkeep
+proyecto3/dataset/
 .DS_Store
 
 
